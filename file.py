@@ -106,14 +106,6 @@
 
 
 
-
-
-
-
-
-
-
-
 # import csv
 # from flask import Flask
 # from flask_sqlalchemy import SQLAlchemy
@@ -221,55 +213,111 @@
 
 
 
+
+
+
+
+
+# import pandas as pd
+# from flask import Flask
+# from flask_sqlalchemy import SQLAlchemy
+# import concurrent.futures
+
+# app = Flask(__name__)
+
+# # Configure the database connection
+# app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:@localhost/s'
+# app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# db = SQLAlchemy(app)
+
+# class Insert_new(db.Model):
+#     __tablename__ = 'insert_new'
+#     id = db.Column(db.Integer, primary_key=True)
+#     F1 = db.Column(db.String(100), nullable=False)
+#     mobail_no = db.Column(db.String(100), nullable=False)
+#     F3 = db.Column(db.String(100), nullable=False)
+#     F4 = db.Column(db.String(100), nullable=False)
+#     prefix = db.Column(db.String(200), nullable=False)
+#     F5 = db.Column(db.String(200), nullable=False)
+
+# def read_and_insert(data):
+#     with app.app_context():
+#         for data, row in data.iterrows():
+#             mobail_no = str(row[0])
+#             three_letters_mobail_no = mobail_no[:3] if len(mobail_no) >= 3 else mobail_no
+
+#             entry = Insert_new.query.filter_by(mobail_no=mobail_no).first()
+
+#             if not entry:
+#                 F1 = '1'
+#                 F3 = '6'
+#                 F4 = '4'
+#                 F5 = '5'
+
+#                 new_data = Insert_new(F1=F1, mobail_no=mobail_no, F3=F3, F4=F4,
+#                                prefix=three_letters_mobail_no, F5=F5)
+#                 db.session.add(new_data)
+#                 db.session.commit()
+
+# def read_excel_insert():
+#     excel_data = pd.read_excel('dndrai.xlsx', header=None)
+
+    
+
+#     with concurrent.futures.ThreadPoolExecutor(max_workers=400) as executor:
+#         data_size = 1000  
+#         data = [excel_data[i:i + data_size] for i in range(0, excel_data.shape[0], data_size)]
+
+#         executor.map(read_and_insert, data)
+
+
+   
+
+# if __name__ == "__main__":
+#     read_excel_insert()
+
+
+# db.session.close()
+
+
+
+
+
+
+
 import pandas as pd
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-import concurrent.futures
+import pymysql
 
-app = Flask(__name__)
+# Connect to database
+connection = pymysql.connect(host='localhost',user='root',password='',database='s',
+                             cursorclass=pymysql.cursors.DictCursor)
 
-# Configure the database connection
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:@localhost/s'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
+def data_insert(data):
+    entries = []
 
-class Sdm(db.Model):
-    __tablename__ = 'sdm'
-    id = db.Column(db.Integer, primary_key=True)
-    F1 = db.Column(db.String(100), nullable=False)
-    mobail_no = db.Column(db.String(100), nullable=False)
-    F3 = db.Column(db.String(100), nullable=False)
-    F4 = db.Column(db.String(100), nullable=False)
-    prefix = db.Column(db.String(200), nullable=False)
-    F5 = db.Column(db.String(200), nullable=False)
+    for _, row in data.iterrows():
+        mobail_no = str(row[0])
+        three_letters_mobail_no = mobail_no[:3] if len(mobail_no) >= 3 else mobail_no
 
-def read_and_insert(data):
-    with app.app_context():
-        for index, row in data.iterrows():
-            mobail_no = str(row[0])
-            three_letters_mobail_no = mobail_no[:3] if len(mobail_no) >= 3 else mobail_no
+        entry = {'F1': '1','mobail_no': mobail_no,'F3': '6','F4': '4',
+                 'prefix': three_letters_mobail_no,'F5': '5'
+        }
+        entries.append(entry)
 
-            entry = Sdm.query.filter_by(mobail_no=mobail_no).first()
-
-            if not entry:
-                F1 = '1'
-                F3 = '6'
-                F4 = '4'
-                F5 = '5'
-
-                new_data = Sdm(F1=F1, mobail_no=mobail_no, F3=F3, F4=F4,
-                               prefix=three_letters_mobail_no, F5=F5)
-                db.session.add(new_data)
-                db.session.commit()
+    with connection.cursor() as cursor:
+        insert_query = "INSERT INTO insert_new (F1, mobail_no, F3, F4, prefix, F5) VALUES (%(F1)s, %(mobail_no)s, %(F3)s, %(F4)s, %(prefix)s, %(F5)s)"
+        cursor.executemany(insert_query, entries)
+        connection.commit()
 
 def read_excel_insert():
     excel_data = pd.read_excel('dndrai.xlsx', header=None)
 
-    data_size = 1000  
-    data = [excel_data[i:i + data_size] for i in range(0, excel_data.shape[0], data)]
+    data_size = 100000  
+    data = [excel_data[i:i + data_size] for i in range(0, excel_data.shape[0], data_size)]
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        executor.map(read_and_insert, data)
+    for chunk in data:
+        data_insert(chunk)
 
 if __name__ == "__main__":
     read_excel_insert()
+    connection.close()
