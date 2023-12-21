@@ -285,39 +285,116 @@
 
 
 
+# import pandas as pd
+# import pymysql
+
+# # Connect to database
+# connection = pymysql.connect(host='localhost',user='root',password='',database='s',
+#                              cursorclass=pymysql.cursors.DictCursor)
+
+# def data_insert(data):
+#     entries = []
+
+#     for _, row in data.iterrows():
+#         mobail_no = str(row[0])
+#         three_letters_mobail_no = mobail_no[:3] if len(mobail_no) >= 3 else mobail_no
+
+#         entry = {'F1': '1','mobail_no': mobail_no,'F3': '6','F4': '4',
+#                  'prefix': three_letters_mobail_no,'F5': '5'
+#         }
+#         entries.append(entry)
+
+#     with connection.cursor() as cursor:
+#         insert_query = "INSERT INTO insert_new (F1, mobail_no, F3, F4, prefix, F5) VALUES (%(F1)s, %(mobail_no)s, %(F3)s, %(F4)s, %(prefix)s, %(F5)s)"
+#         cursor.executemany(insert_query, entries)
+#         connection.commit()
+
+# def read_excel_insert():
+#     excel_data = pd.read_excel('dndrai.xlsx', header=None)
+
+#     data_size = 100000  
+#     data = [excel_data[i:i + data_size] for i in range(0, excel_data.shape[0], data_size)]
+
+#     for chunk in data:
+#         data_insert(chunk)
+
+# if __name__ == "__main__":
+#     read_excel_insert()
+#     connection.close()
+
+
+
+
+
+
 import pandas as pd
 import pymysql
+from concurrent.futures import ThreadPoolExecutor
 
-# Connect to database
-connection = pymysql.connect(host='localhost',user='root',password='',database='s',
-                             cursorclass=pymysql.cursors.DictCursor)
+# Connect to the MySQL database
+try:
+    connection = pymysql.connect(host='localhost', user='root', password='', database='s',
+                                 cursorclass=pymysql.cursors.DictCursor)
+    print("DB connection successfully")
+except:
+    print("DB connection failed")
 
 def data_insert(data):
-    entries = []
+    # duplicate data catch sets 
+    duplicate_data = set()
+    # data count for duplicate
+    duplicate = 0 
+# select query match data of mobail no
+    try:
+        with connection.cursor() as cursor:
+            select_query = "SELECT F2 FROM insert_new"
+            cursor.execute(select_query)
+            sdm = cursor.fetchall()
+            # 
+            for row in sdm:
+                duplicate_data.add(row['F2'])  
+    except :
+        print("dublicate data Error")
+
+    list_data = []
 
     for _, row in data.iterrows():
         mobail_no = str(row[0])
         three_letters_mobail_no = mobail_no[:3] if len(mobail_no) >= 3 else mobail_no
+#  dublicate data entry variable in not to run 
+        if mobail_no not in duplicate_data:
+            entry = {'F1': '1','F2': mobail_no,'F3': '6','F4': '4',
+                     'prefix': three_letters_mobail_no,'F5': '5'
+            }
+            list_data.append(entry)
+        else:
+            # duplicate data +=1 
+            duplicate += 1
 
-        entry = {'F1': '1','mobail_no': mobail_no,'F3': '6','F4': '4',
-                 'prefix': three_letters_mobail_no,'F5': '5'
-        }
-        entries.append(entry)
+    try:
+        #insert data to store list_data dict
+        if list_data:
+            with connection.cursor() as cursor:
+                insert_query = "INSERT INTO insert_new (F1, F2, F3, F4, prefix, F5) VALUES (%(F1)s, %(mobail_no)s, %(F3)s, %(F4)s, %(prefix)s, %(F5)s)"
+                cursor.executemany(insert_query, list_data)
+                connection.commit()
+                print("Data inserted successfully")
+                
+    except:
+        print("Error data not pull")
 
-    with connection.cursor() as cursor:
-        insert_query = "INSERT INTO insert_new (F1, mobail_no, F3, F4, prefix, F5) VALUES (%(F1)s, %(mobail_no)s, %(F3)s, %(F4)s, %(prefix)s, %(F5)s)"
-        cursor.executemany(insert_query, entries)
-        connection.commit()
-
+    print(f"Total dublicate found: {duplicate}")
+# read to excel file 
 def read_excel_insert():
-    excel_data = pd.read_excel('dndrai.xlsx', header=None)
+    excel_data = pd.read_excel('MergedDndNoOfFiveServer_2023-12-20.xls', header=None)
 
     data_size = 100000  
     data = [excel_data[i:i + data_size] for i in range(0, excel_data.shape[0], data_size)]
+    
+# treadPoolExecutor max_works 1 time  execute 
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        executor.map(data_insert, data)
 
-    for chunk in data:
-        data_insert(chunk)
-
-if __name__ == "__main__":
-    read_excel_insert()
-    connection.close()
+# if __name__ == "__main__":
+read_excel_insert()
+connection.close()
