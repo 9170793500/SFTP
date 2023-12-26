@@ -381,7 +381,7 @@ def data_insert(data):
                 print("Data inserted successfully")
                 
     except:
-        print("Error data not pull")
+        print("Error data not insert")
 
     print(f"Total dublicate found: {duplicate}")
 # read to excel file 
@@ -390,7 +390,7 @@ def read_excel_insert():
 
     data_size = 100000  
     data = [excel_data[i:i + data_size] for i in range(0, excel_data.shape[0], data_size)]
-    
+
 # treadPoolExecutor max_works 1 time  execute 
     with ThreadPoolExecutor(max_workers=1) as executor:
         executor.map(data_insert, data)
